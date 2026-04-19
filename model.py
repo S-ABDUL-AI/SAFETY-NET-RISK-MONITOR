@@ -19,7 +19,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from data import REQUIRED_COLUMNS, risk_display_name
+from data import REQUIRED_COLUMNS, risk_display_name, validate_for_training
 
 FEATURE_NUMERIC = [
     "income",
@@ -76,15 +76,23 @@ def train_model(df: pd.DataFrame, random_state: int = 42) -> TrainResult:
     Returns accuracy on a held-out test split and the fitted pipeline.
     """
     data = df[REQUIRED_COLUMNS].copy()
+    validate_for_training(data)
+
     y = data[TARGET].astype(int).values
     X = data[FEATURE_NUMERIC + FEATURE_CATEGORICAL]
 
     classes = np.unique(y)
     is_binary = len(classes) == 2
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.25, random_state=random_state, stratify=y
-    )
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.25, random_state=random_state, stratify=y
+        )
+    except ValueError:
+        # Too few rows per class for stratified split; fall back to a random split.
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.25, random_state=random_state, stratify=None
+        )
 
     pipeline = _build_pipeline()
     pipeline.fit(X_train, y_train)

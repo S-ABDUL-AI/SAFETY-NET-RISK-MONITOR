@@ -65,6 +65,8 @@ def _sidebar_upload() -> None:
 def _sidebar_regions(df) -> list:
     """Return list of regions to include in tables and charts (empty = all)."""
     all_regions = sorted(df["region"].astype(str).unique().tolist())
+    if not all_regions:
+        return []
     picked = st.sidebar.multiselect(
         "Regions to show",
         options=all_regions,
@@ -99,6 +101,7 @@ def _run_training(df_full) -> bool:
     except Exception as exc:  # noqa: BLE001
         st.session_state.model_bundle = None
         st.error(f"Scores could not be built: {exc}")
+        st.caption(f"Error type: {type(exc).__name__}. Check data size, labels, and numeric columns.")
         return False
 
 
@@ -116,6 +119,8 @@ def main() -> None:
     st.sidebar.title("Settings")
     _sidebar_upload()
     region_pick = _sidebar_regions(df_full)
+    if not region_pick and len(df_full) > 0:
+        st.sidebar.warning("No region names were found in the dataset.")
     df_view = _filter_by_regions(df_full, region_pick)
 
     st.sidebar.divider()
@@ -144,6 +149,14 @@ def main() -> None:
     st.caption(
         "A simple decision-support screen: compare places, see where stress looks higher in **your** data, "
         "and read plain-language ideas for next steps. This is not an official poverty count."
+    )
+
+    st.markdown(
+        """
+### Policy purpose
+
+This tool helps policymakers make data-driven decisions to reduce poverty and improve economic outcomes.
+"""
     )
 
     with st.expander("How to use this page", expanded=False):
@@ -199,6 +212,12 @@ def main() -> None:
     st.caption(
         "Higher is better, but real decisions should still use local knowledge, not this number alone."
     )
+
+    if preds_view.empty:
+        st.warning(
+            "No prediction rows match the current region filter. Select more regions in the sidebar, "
+            "or use **Refresh risk scores** after changing the data."
+        )
 
     st.subheader("Scores and suggested actions (row level)")
     display_order = [
@@ -299,22 +318,22 @@ def main() -> None:
     )
 
     st.subheader("Charts")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.plotly_chart(
-            viz_mod.chart_risk_by_region(preds_view),
-            use_container_width=True,
-        )
-    names = bundle.get("importance_names", [])
-    values = bundle.get("importance_values", [])
-    with c2:
-        if names and values:
+    if preds_view.empty:
+        st.info("No rows match the current region filter, so charts are hidden. Select more regions in the sidebar.")
+    else:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.plotly_chart(
+                viz_mod.chart_risk_by_region(preds_view),
+                use_container_width=True,
+            )
+        names = bundle.get("importance_names", [])
+        values = bundle.get("importance_values", [])
+        with c2:
             st.plotly_chart(
                 viz_mod.chart_feature_importance(names, values),
                 use_container_width=True,
             )
-        else:
-            st.empty()
 
     st.subheader("What is driving these scores?")
     sentence = model_mod.format_top_driver_sentence(names, values)

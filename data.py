@@ -26,6 +26,16 @@ REQUIRED_COLUMNS = [
 # Friendly names for display (policymaker-facing)
 RISK_LABELS = {0: "Low", 1: "Medium", 2: "High"}
 
+# Minimum rows so train or test split is meaningful (matches app messaging).
+MIN_ROWS_FOR_TRAINING = 20
+
+NUMERIC_FEATURE_COLUMNS = [
+    "income",
+    "employment_rate",
+    "food_price_index",
+    "inflation",
+]
+
 
 def validate_dataframe(df: pd.DataFrame) -> None:
     """Raise ValueError if required columns are missing."""
@@ -42,7 +52,18 @@ def validate_dataframe(df: pd.DataFrame) -> None:
 def load_csv_from_upload(uploaded_file: BinaryIO) -> pd.DataFrame:
     """Read an uploaded CSV into a DataFrame and validate columns."""
     raw = uploaded_file.read()
-    df = pd.read_csv(io.BytesIO(raw))
+    if raw is None or len(raw) == 0:
+        raise ValueError("The uploaded file is empty.")
+    if not raw.strip():
+        raise ValueError("The uploaded file is empty or contains only blank lines.")
+    try:
+        df = pd.read_csv(io.BytesIO(raw))
+    except pd.errors.EmptyDataError as exc:
+        raise ValueError("The CSV has no readable rows.") from exc
+    except pd.errors.ParserError as exc:
+        raise ValueError(
+            "Could not parse this file as CSV. Check commas, quotes, and column headers."
+        ) from exc
     validate_dataframe(df)
     extra_pop = "population" in df.columns
     cols = list(REQUIRED_COLUMNS)
@@ -50,6 +71,8 @@ def load_csv_from_upload(uploaded_file: BinaryIO) -> pd.DataFrame:
         cols.append("population")
     df = df[cols].copy()
     df = _normalize_poverty_label(df)
+    df = coerce_numeric_features(df)
+    validate_for_training(df)
     # Late import avoids circular import (insights imports this module).
     from insights import attach_population_if_missing
 
@@ -73,6 +96,58 @@ def _normalize_poverty_label(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("poverty_label must use values 0, 1, and optionally 2 only.")
     df["poverty_label"] = df["poverty_label"].astype(int)
     return df
+
+
+def coerce_numeric_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Cast indicator columns to float; invalid cells become NaN and are caught by validate_for_training."""
+    out = df.copy()
+    for col in NUMERIC_FEATURE_COLUMNS:
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce")
+    return out
+
+
+def validate_for_training(df: pd.DataFrame) -> None:
+    """
+    Raise ValueError if the table cannot support training or honest scoring.
+
+    Expects REQUIRED_COLUMNS present and poverty_label already normalized.
+    """
+    if df is None or len(df) == 0:
+        raise ValueError("The dataset is empty.")
+    if len(df) < MIN_ROWS_FOR_TRAINING:
+        raise ValueError(
+            f"Need at least {MIN_ROWS_FOR_TRAINING} rows to build a train and test split. "
+            f"This dataset has {len(df)}."
+        )
+    for col in NUMERIC_FEATURE_COLUMNS:
+        if col not in df.columns:
+            continue
+        series = df[col]
+        if series.isna().all():
+            raise ValueError(f"Column {col!r} has no valid numeric values.")
+        if series.isna().any():
+            raise ValueError(
+                f"Column {col!r} has missing or non-numeric cells. "
+                "Fill or remove those rows, then upload again."
+            )
+    if (df["income"] < 0).any():
+        raise ValueError("Column income contains negative values.")
+    emp = df["employment_rate"]
+    if (emp < 0).any() or (emp > 100).any():
+        raise ValueError(
+            "Column employment_rate should be between 0 and 100 (percent of people in work)."
+        )
+    if df["region"].isna().any():
+        raise ValueError("Column region has missing values.")
+    if (df["region"].astype(str).str.strip() == "").any():
+        raise ValueError("Column region has blank text. Use a real place name in every row.")
+    labels = df["poverty_label"].dropna().unique()
+    if len(labels) < 2:
+        raise ValueError(
+            "Column poverty_label uses only one category. "
+            "The model needs at least two levels (for example 0 and 1, or 0, 1, and 2)."
+        )
 
 
 def generate_synthetic_dataset(

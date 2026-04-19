@@ -13,6 +13,24 @@ def chart_risk_by_region(pred_df: pd.DataFrame) -> go.Figure:
 
     pred_df must include columns 'region' and 'risk_level'.
     """
+    if pred_df is None or pred_df.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            template="plotly_white",
+            title="Risk outlook by region",
+            annotations=[
+                dict(
+                    text="No rows to chart for this filter.",
+                    showarrow=False,
+                    x=0.5,
+                    y=0.5,
+                    xref="paper",
+                    yref="paper",
+                )
+            ],
+        )
+        return fig
+
     counts = (
         pred_df.groupby(["region", "risk_level"]).size().reset_index(name="count")
     )
@@ -52,6 +70,24 @@ def chart_risk_by_region(pred_df: pd.DataFrame) -> go.Figure:
 
 def chart_feature_importance(names: list[str], values: list[float]) -> go.Figure:
     """Horizontal bar chart of the strongest model signals (importance scores)."""
+    if not names or not values:
+        fig = go.Figure()
+        fig.update_layout(
+            template="plotly_white",
+            title="Which signals the model relies on most",
+            annotations=[
+                dict(
+                    text="No importance data yet.",
+                    showarrow=False,
+                    x=0.5,
+                    y=0.5,
+                    xref="paper",
+                    yref="paper",
+                )
+            ],
+        )
+        return fig
+
     df = pd.DataFrame({"signal": names, "importance": values}).sort_values(
         "importance", ascending=True
     )

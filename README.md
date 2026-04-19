@@ -76,6 +76,8 @@ Open the URL shown in the terminal (usually `http://localhost:8501`).
 
 ## CSV format
 
+Uploads are checked for **empty files**, **parse errors**, **at least 20 rows**, **two or more `poverty_label` categories**, **no missing numeric cells** in the indicator columns, **non-negative income**, **`employment_rate` between 0 and 100**, and **non-blank `region`**. Fix issues in your sheet, then upload again.
+
 **Required columns** (exact names):
 
 | Column | Description |

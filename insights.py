@@ -106,6 +106,17 @@ def build_policy_insights_table(preds_with_pop: pd.DataFrame) -> pd.DataFrame:
 
     Uses mean feature levels within each region vs whole-sample benchmarks.
     """
+    out_columns = [
+        "region",
+        "risk_band",
+        "people_represented",
+        "avg_food_price_index",
+        "avg_employment_rate",
+        "why_this_outlook",
+    ]
+    if preds_with_pop is None or preds_with_pop.empty:
+        return pd.DataFrame(columns=out_columns)
+
     df = preds_with_pop.copy()
     bm = _benchmarks(df)
 
@@ -150,6 +161,15 @@ def build_policy_insights_table(preds_with_pop: pd.DataFrame) -> pd.DataFrame:
 def summary_dashboard_stats(preds_with_pop: pd.DataFrame) -> dict:
     """Counts for the headline dashboard and brief."""
     df = preds_with_pop.copy()
+    if df.empty:
+        return {
+            "high_risk_regions": 0,
+            "medium_only_regions": 0,
+            "medium_or_high_regions": 0,
+            "population_high_risk_rows": 0,
+            "population_elevated_or_higher": 0,
+            "total_regions": 0,
+        }
     high_regions = df.groupby("region")["predicted_risk"].max()
     n_high_regions = int((high_regions >= 2).sum())
     n_medium_only_regions = int((high_regions == 1).sum())
@@ -195,8 +215,13 @@ def generate_policy_brief(
     model_accuracy: float,
 ) -> str:
     """One short paragraph decision-makers can lift into notes or meetings."""
-    hr = stats["high_risk_regions"]
     tr = stats["total_regions"]
+    if tr == 0:
+        return (
+            "No rows are in the current view, so there is nothing to summarise. "
+            "Widen the region filter in the sidebar or upload a larger dataset."
+        )
+    hr = stats["high_risk_regions"]
     pop = stats["population_high_risk_rows"]
 
     themes = _theme_counts_for_brief(insights_df)
