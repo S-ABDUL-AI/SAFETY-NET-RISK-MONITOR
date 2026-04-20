@@ -113,6 +113,14 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
+    st.markdown(
+        """
+        <style>
+        div.block-container { padding-top: 0.9rem; padding-bottom: 1.4rem; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     _init_session()
     df_full = insights_mod.attach_population_if_missing(st.session_state.source_df)
     st.session_state.source_df = df_full
