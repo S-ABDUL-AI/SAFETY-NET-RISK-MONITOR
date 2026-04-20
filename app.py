@@ -203,12 +203,19 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
     result = bundle["result"]
     preds_full = bundle["predictions"]
     preds_view = _filter_by_regions(preds_full, region_pick)
+    preds_intel = preds_full.copy()
+    if "population" in df_full.columns and len(df_full) == len(preds_intel):
+        preds_intel["population"] = pd.to_numeric(
+            df_full["population"], errors="coerce"
+        ).fillna(0).astype(int).values
+    else:
+        preds_intel = insights_mod.attach_population_if_missing(preds_intel)
     all_regions_set = set(sorted(df_full["region"].astype(str).unique().tolist()))
     region_filter_set = set(region_pick)
     intel_scope = (
-        preds_full
+        preds_intel
         if region_filter_set == all_regions_set
-        else preds_full[preds_full["region"].isin(region_pick)].copy()
+        else preds_intel[preds_intel["region"].isin(region_pick)].copy()
     )
 
     st.subheader("How well the score matches the data")
@@ -299,14 +306,7 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
         hide_index=True,
     )
 
-    # --- Policy intelligence (uses same row order as the model output)
-    preds_intel = preds_full.copy()
-    preds_intel["population"] = df_full["population"].astype(int).values
-    intel_scope = (
-        preds_intel
-        if region_filter_set == all_regions_set
-        else preds_intel[preds_intel["region"].isin(region_pick)].copy()
-    )
+    # --- Policy intelligence (same scoped table used above)
     if region_filter_set != all_regions_set:
         st.caption(
             "Summary and policy text below follow your region filter. Switch back to all regions for a whole-country-style view."
