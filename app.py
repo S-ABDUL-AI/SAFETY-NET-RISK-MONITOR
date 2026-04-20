@@ -226,6 +226,7 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
         )
     else:
         st.subheader("Executive snapshot")
+        action_impact = insights_mod.build_action_impact_table(intel_scope, top_n=6)
         dash_now = insights_mod.summary_dashboard_stats(intel_scope)
         top_region_now = (
             intel_scope.groupby("region", as_index=False)["predicted_risk"]
@@ -244,21 +245,41 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
         with k4:
             st.metric("Top immediate focus region", str(top_region_now))
 
-        st.subheader("Priority actions and expected impact")
+        if action_impact.empty:
+            focus_action = "No action available for this filter."
+            focus_impact = "No impact estimate available."
+            focus_people = 0
+        else:
+            focus_row = action_impact.iloc[0]
+            focus_action = str(focus_row["recommended_action"])
+            focus_impact = str(focus_row["expected_impact"])
+            focus_people = int(focus_row["estimated_people_reached"])
+
+        a1, a2, a3 = st.columns((1.15, 1.25, 0.8), gap="medium")
+        with a1:
+            st.markdown("**Priority action (now)**")
+            st.write(focus_action)
+        with a2:
+            st.markdown("**Expected impact (indicative)**")
+            st.write(focus_impact)
+        with a3:
+            st.metric("Estimated beneficiaries", f"{focus_people:,}")
+
+        with st.expander("Priority actions and expected impact (detail)", expanded=False):
+            st.dataframe(
+                action_impact,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "estimated_people_reached": st.column_config.NumberColumn("Estimated people reached", format="%d"),
+                    "expected_impact": st.column_config.TextColumn("Expected impact (indicative)"),
+                    "recommended_action": st.column_config.TextColumn("Action"),
+                },
+            )
+
         st.caption(
             "Impact estimates are indicative scenario figures based on the current dataset profile. "
             "Use them as planning ranges, not causal guarantees."
-        )
-        action_impact = insights_mod.build_action_impact_table(intel_scope, top_n=6)
-        st.dataframe(
-            action_impact,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "estimated_people_reached": st.column_config.NumberColumn("Estimated people reached", format="%d"),
-                "expected_impact": st.column_config.TextColumn("Expected impact (indicative)"),
-                "recommended_action": st.column_config.TextColumn("Action"),
-            },
         )
 
     with st.expander("How well the score matches the data", expanded=False):
