@@ -116,7 +116,7 @@ def main() -> None:
     st.markdown(
         """
         <style>
-        div.block-container { padding-top: 0.9rem; padding-bottom: 1.4rem; }
+        div.block-container { padding-top: 0.65rem; padding-bottom: 1.2rem; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -178,6 +178,7 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
 5. **Population.** Unless you upload a `population` column, people counts are **illustrative** for dashboards only.
             """
         )
+        st.caption(st.session_state.data_note)
 
     with st.expander("Problem statement", expanded=False):
         st.info(
@@ -189,8 +190,6 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
             "with plain suggested actions. It does not replace official surveys or local judgment; it "
             "helps you start the conversation with a shared picture."
         )
-
-    st.info(st.session_state.data_note)
 
     with st.expander("Dataset preview", expanded=False):
         st.dataframe(df_view.head(50), use_container_width=True, hide_index=True)
