@@ -158,6 +158,93 @@ def build_policy_insights_table(preds_with_pop: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows_out).sort_values("region")
 
 
+def build_action_impact_table(
+    preds_with_pop: pd.DataFrame,
+    top_n: int = 6,
+) -> pd.DataFrame:
+    """
+    Build an executive table linking each region's recommended action to
+    a simple expected-impact estimate.
+
+    Impact figures are indicative scenario estimates derived from how far each
+    region sits from whole-sample medians on food prices, employment, inflation,
+    and income.
+    """
+    out_cols = [
+        "region",
+        "risk_band",
+        "recommended_action",
+        "expected_impact",
+        "estimated_people_reached",
+    ]
+    if preds_with_pop is None or preds_with_pop.empty:
+        return pd.DataFrame(columns=out_cols)
+
+    df = preds_with_pop.copy()
+    bm = _benchmarks(df)
+    agg = (
+        df.groupby("region", as_index=False)
+        .agg(
+            highest_risk=("predicted_risk", "max"),
+            avg_food=("food_price_index", "mean"),
+            avg_employment=("employment_rate", "mean"),
+            avg_inflation=("inflation", "mean"),
+            avg_income=("income", "mean"),
+            population=("population", "sum"),
+        )
+        .sort_values(["highest_risk", "population"], ascending=[False, False])
+        .head(max(1, int(top_n)))
+    )
+
+    def _action_for_code(code: int) -> str:
+        if code >= 2:
+            return "Targeted cash transfers, food subsidies"
+        if code == 1:
+            return "Job programs, microfinance support"
+        return "Monitor and maintain policies"
+
+    rows: list[dict] = []
+    for _, r in agg.iterrows():
+        code = int(r["highest_risk"])
+        band = data_mod.RISK_LABELS.get(code, "Unknown")
+        action = _action_for_code(code)
+
+        food_gap = max(0.0, (float(r["avg_food"]) - bm["food_price_median"]) / max(1.0, bm["food_price_median"]) * 100.0)
+        emp_gap = max(0.0, (bm["employment_median"] - float(r["avg_employment"])) / max(1.0, bm["employment_median"]) * 100.0)
+        infl_gap = max(0.0, (float(r["avg_inflation"]) - bm["inflation_median"]) / max(1.0, bm["inflation_median"]) * 100.0)
+        income_gap = max(0.0, (bm["income_median"] - float(r["avg_income"])) / max(1.0, bm["income_median"]) * 100.0)
+
+        driver = max(
+            [("food", food_gap), ("employment", emp_gap), ("inflation", infl_gap), ("income", income_gap)],
+            key=lambda x: x[1],
+        )[0]
+
+        if driver == "food":
+            est = round(min(15.0, max(3.0, food_gap * 0.6)), 1)
+            impact = f"Could reduce food-price pressure by about {est}% with effective rollout."
+        elif driver == "employment":
+            est = round(min(12.0, max(2.0, emp_gap * 0.5)), 1)
+            impact = f"Could improve employment outcomes by roughly {est}% over the policy cycle."
+        elif driver == "inflation":
+            est = round(min(10.0, max(2.0, infl_gap * 0.45)), 1)
+            impact = f"Could lower inflation pressure by around {est}% in affected households."
+        else:
+            est = round(min(12.0, max(2.5, income_gap * 0.5)), 1)
+            impact = f"Could improve disposable income resilience by about {est}%."
+
+        rows.append(
+            {
+                "region": str(r["region"]),
+                "risk_band": band,
+                "recommended_action": action,
+                "expected_impact": impact,
+                "estimated_people_reached": int(r["population"]),
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
 def summary_dashboard_stats(preds_with_pop: pd.DataFrame) -> dict:
     """Counts for the headline dashboard and brief."""
     df = preds_with_pop.copy()

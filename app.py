@@ -203,6 +203,13 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
     result = bundle["result"]
     preds_full = bundle["predictions"]
     preds_view = _filter_by_regions(preds_full, region_pick)
+    all_regions_set = set(sorted(df_full["region"].astype(str).unique().tolist()))
+    region_filter_set = set(region_pick)
+    intel_scope = (
+        preds_full
+        if region_filter_set == all_regions_set
+        else preds_full[preds_full["region"].isin(region_pick)].copy()
+    )
 
     st.subheader("How well the score matches the data")
     st.metric(
@@ -217,6 +224,42 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
         st.warning(
             "No prediction rows match the current region filter. Select more regions in the sidebar, "
             "or use **Refresh risk scores** after changing the data."
+        )
+    else:
+        st.subheader("Executive snapshot")
+        dash_now = insights_mod.summary_dashboard_stats(intel_scope)
+        top_region_now = (
+            intel_scope.groupby("region", as_index=False)["predicted_risk"]
+            .max()
+            .sort_values("predicted_risk", ascending=False)
+            .iloc[0]["region"]
+        )
+        high_row_share = float((intel_scope["predicted_risk"] >= 2).mean() * 100.0)
+        k1, k2, k3, k4 = st.columns(4)
+        with k1:
+            st.metric("High-stress regions", dash_now["high_risk_regions"])
+        with k2:
+            st.metric("Rows in highest stress band", f"{high_row_share:.1f}%")
+        with k3:
+            st.metric("People in highest-stress rows", f"{dash_now['population_high_risk_rows']:,}")
+        with k4:
+            st.metric("Top immediate focus region", str(top_region_now))
+
+        st.subheader("Priority actions and expected impact")
+        st.caption(
+            "Impact estimates are indicative scenario figures based on the current dataset profile. "
+            "Use them as planning ranges, not causal guarantees."
+        )
+        action_impact = insights_mod.build_action_impact_table(intel_scope, top_n=6)
+        st.dataframe(
+            action_impact,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "estimated_people_reached": st.column_config.NumberColumn("Estimated people reached", format="%d"),
+                "expected_impact": st.column_config.TextColumn("Expected impact (indicative)"),
+                "recommended_action": st.column_config.TextColumn("Action"),
+            },
         )
 
     st.subheader("Scores and suggested actions (row level)")
@@ -259,9 +302,11 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
     # --- Policy intelligence (uses same row order as the model output)
     preds_intel = preds_full.copy()
     preds_intel["population"] = df_full["population"].astype(int).values
-    all_regions_set = set(sorted(df_full["region"].astype(str).unique().tolist()))
-    region_filter_set = set(region_pick)
-    intel_scope = preds_intel if region_filter_set == all_regions_set else preds_intel[preds_intel["region"].isin(region_pick)].copy()
+    intel_scope = (
+        preds_intel
+        if region_filter_set == all_regions_set
+        else preds_intel[preds_intel["region"].isin(region_pick)].copy()
+    )
     if region_filter_set != all_regions_set:
         st.caption(
             "Summary and policy text below follow your region filter. Switch back to all regions for a whole-country-style view."
