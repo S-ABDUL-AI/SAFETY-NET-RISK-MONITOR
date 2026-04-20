@@ -184,8 +184,8 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
 
     st.info(st.session_state.data_note)
 
-    st.subheader("Dataset preview")
-    st.dataframe(df_view.head(50), use_container_width=True, hide_index=True)
+    with st.expander("Dataset preview", expanded=False):
+        st.dataframe(df_view.head(50), use_container_width=True, hide_index=True)
 
     bundle = st.session_state.model_bundle
     if bundle is None:
@@ -270,26 +270,26 @@ This tool helps policymakers make data-driven decisions to reduce poverty and im
             },
         )
 
-    st.subheader("Scores and suggested actions (row level)")
-    display_order = [
-        "region",
-        "income",
-        "employment_rate",
-        "food_price_index",
-        "inflation",
-        "risk_level",
-        "recommended_action",
-    ]
-    prob_pref = [
-        "chance_low",
-        "chance_medium",
-        "chance_high",
-        "likelihood_lower_concern",
-        "likelihood_elevated_concern",
-    ]
-    extra_prob_cols = [c for c in prob_pref if c in preds_view.columns]
-    ordered = [c for c in display_order if c in preds_view.columns] + extra_prob_cols
-    st.dataframe(preds_view[ordered], use_container_width=True, hide_index=True)
+    with st.expander("Scores and suggested actions (row level)", expanded=False):
+        display_order = [
+            "region",
+            "income",
+            "employment_rate",
+            "food_price_index",
+            "inflation",
+            "risk_level",
+            "recommended_action",
+        ]
+        prob_pref = [
+            "chance_low",
+            "chance_medium",
+            "chance_high",
+            "likelihood_lower_concern",
+            "likelihood_elevated_concern",
+        ]
+        extra_prob_cols = [c for c in prob_pref if c in preds_view.columns]
+        ordered = [c for c in display_order if c in preds_view.columns] + extra_prob_cols
+        st.dataframe(preds_view[ordered], use_container_width=True, hide_index=True)
 
     st.subheader("Regional summary (uses the highest risk band seen in each region)")
     summary = (
