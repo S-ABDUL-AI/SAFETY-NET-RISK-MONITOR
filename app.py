@@ -112,6 +112,14 @@ st.markdown(f"""
               text-transform:uppercase;margin-bottom:9px;}}
     .sb-foot{{font-size:11px;color:{MUTED};border-top:1px solid {RULE};
               padding-top:11px;margin-top:18px;line-height:1.5;}}
+
+    /* PDF export area */
+    .pdf-generating{{text-align:center;padding:12px;}}
+    div[data-testid="stDownloadButton"] button{{
+        background:{NAVY} !important;color:white !important;
+        border:none !important;font-weight:600 !important;
+        letter-spacing:.3px !important;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -524,15 +532,14 @@ st.dataframe(
     },
 )
 
-# ── EXPORT — PDF + CSV ─────────────────────────────────────────
+# ── EXPORT — PDF ONLY ──────────────────────────────────────────
 st.markdown('<div class="sec-lbl">Export</div>', unsafe_allow_html=True)
 st.markdown('<div class="sec-ttl">Download McKinsey-Style Policy Report</div>',
             unsafe_allow_html=True)
 st.markdown(
     '<div class="sec-sub">Full PDF briefing document — cover page, executive snapshot, '
     'policy brief, regional insights, vulnerability charts, and methodology note. '
-    'Ready to share with programme directors, funders, or government partners. '
-    'CSV export also available below.</div>',
+    'Ready to share with programme directors, funders, or government partners.</div>',
     unsafe_allow_html=True)
 
 report_col1, report_col2 = st.columns([1, 2])
@@ -564,26 +571,11 @@ with report_col1:
                 use_container_width=True,
             )
     else:
-        st.warning(
+        st.error(
             "PDF generation unavailable. "
             "Ensure `report_generator.py` is in the same folder as `app.py` "
-            "and that `reportlab`, `pypdf`, and `matplotlib` are installed."
+            "and that `reportlab` and `matplotlib` are installed."
         )
-
-    # CSV download always available
-    st.markdown("<br>", unsafe_allow_html=True)
-    csv_out = df_filtered[[
-        "rank","region","risk_band","vulnerability_score",
-        "avg_food_price_index","avg_employment_rate","avg_income_index",
-        "recommended_action","why_this_outlook","population",
-    ]].to_csv(index=False)
-    st.download_button(
-        "📥  Download full panel (CSV)",
-        data=csv_out,
-        file_name="community_vulnerability_targeting.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
 
 with report_col2:
     st.markdown(f"""
@@ -595,7 +587,7 @@ with report_col2:
     📈 &nbsp;<strong>Vulnerability score chart</strong> — all regions, color-coded by priority band<br>
     🔍 &nbsp;<strong>Indicator weight chart</strong> — what drives the scores, with methodology note<br>
     📝 &nbsp;<strong>Plain-language insight per region</strong> — score, reasoning, and recommended action<br>
-    🔬 &nbsp;<strong>Scope note & limitations</strong> — 4 caveats and data source citations<br>
+    🔬 &nbsp;<strong>Scope note &amp; limitations</strong> — 4 caveats and data source citations<br>
     ✍️ &nbsp;<strong>Credentialed byline</strong> — author, USAID/UNDP/UKAID references, Obama Foundation<br>
     </div>
     """, unsafe_allow_html=True)
@@ -605,7 +597,7 @@ st.markdown(f"""
 <div class="byline">
 <strong>Built by Sherriff Abdul-Hamid</strong> — Product leader specializing in government
 digital services, SNAP and safety net benefits delivery, and proactive targeting tools
-for underserved communities. Former Founder & CEO, Poverty 360 (25,000+ beneficiaries served).
+for underserved communities. Former Founder &amp; CEO, Poverty 360 (25,000+ beneficiaries served).
 Obama Foundation Leaders Award · Mandela Washington Fellow · Harvard Business School.<br><br>
 <em>Built-in data is illustrative. For live SNAP or food security targeting, upload your
 own CSV data or integrate with USDA FNS administrative records.</em><br><br>
