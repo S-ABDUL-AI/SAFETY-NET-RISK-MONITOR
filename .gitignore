@@ -1,7 +1,12 @@
 .venv/
 venv/
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 *.py[cod]
+.env
+*.db-journal
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
